@@ -1,0 +1,40 @@
+trigger:
+  - master
+
+jobs:
+  - job: macOS
+    pool:
+      vmImage: macOS-latest
+      
+    steps:
+
+      - task: NodeTool@0
+        inputs:
+          versionSpec: '16.x'
+        displayName: 'Install Node.js'
+
+      - script: |
+          $ANDROID_HOME/tools/bin/sdkmanager --list
+        displayName: 'List already installed Android packages'
+
+      - script: |
+          echo "y" | $ANDROID_HOME/tools/bin/sdkmanager --install 'system-images;android-33;google_apis;x86_64'
+        displayName: 'Install Android image'
+
+      - script: |
+          $ANDROID_HOME/emulator/emulator -list-avds
+          echo '---'
+          echo "no" | $ANDROID_HOME/tools/bin/avdmanager create avd -n test_android_emulator -k 'system-images;android-33;google_apis;x86_64' --force
+          echo '---'
+          $ANDROID_HOME/emulator/emulator -list-avds
+        displayName: 'Create AVD'
+
+      - script: |
+          $ANDROID_HOME/platform-tools/adb devices
+          echo '---'
+          nohup $ANDROID_HOME/emulator/emulator -avd test_android_emulator -no-snapshot > /dev/null 2>&1 & $ANDROID_HOME/platform-tools/adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed | tr -d '\r') ]]; do sleep 1; done; input keyevent 82'
+          echo '---'
+          $ANDROID_HOME/platform-tools/adb devices
+          $ANDROID_HOME/platform-tools/adb shell getprop
+
+        displayName: 'Start Android emulator'
